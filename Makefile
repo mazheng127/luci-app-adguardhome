@@ -6,8 +6,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-adguardhome
-PKG_VERSION:=1.7
-PKG_RELEASE:=28
+PKG_VERSION:=1.8
+PKG_RELEASE:=11
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 
@@ -20,7 +20,7 @@ define Package/luci-app-adguardhome
 	TITLE:=LuCI app for adguardhome
 	PKG_MAINTAINER:=<https://github.com/rufengsuixing/luci-app-adguardhome>
 	PKGARCH:=all
-	DEPENDS:=+wget
+	DEPENDS:=+!wget&&!curl:wget
 endef
 
 define Package/luci-app-adguardhome/description
@@ -34,7 +34,7 @@ define Build/Compile
 endef
 
 define Package/luci-app-adguardhome/conffiles
-/etc/AdGuardHome.yaml
+/usr/share/AdGuardHome/links.txt
 /etc/config/AdGuardHome
 endef
 
@@ -50,9 +50,9 @@ endef
 define Package/luci-app-adguardhome/postinst
 #!/bin/sh
 	/etc/init.d/AdGuardHome enable >/dev/null 2>&1
-	enable=$(uci get AdGuardHome.AdGuardHome.enabled)
-	if [ "$enable"x == "1"x ]; then
-	/etc/init.d/AdGuardHome start
+	enable=$(uci get AdGuardHome.AdGuardHome.enabled 2>/dev/null)
+	if [ "$enable" == "1" ]; then
+		/etc/init.d/AdGuardHome reload
 	fi
 	rm -f /tmp/luci-indexcache
 	rm -f /tmp/luci-modulecache/*
@@ -64,6 +64,10 @@ define Package/luci-app-adguardhome/prerm
 if [ -z "$${IPKG_INSTROOT}" ]; then
      /etc/init.d/AdGuardHome disable
      /etc/init.d/AdGuardHome stop
+uci -q batch <<-EOF >/dev/null 2>&1
+	delete ucitrack.@AdGuardHome[-1]
+	commit ucitrack
+EOF
 fi
 exit 0
 endef
